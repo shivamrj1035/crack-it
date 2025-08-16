@@ -19,21 +19,20 @@ export async function POST(request: NextRequest) {
   const jobDescription = formData.get("jobDescription") as File;
   const jobExperience = formData.get("jobExperience") as File;
 
-  // const decision = await aj.protect(request, {
-  //   requested: 5,
-  // }); // Deduct 5 tokens from the bucket
-  // console.log("Arcjet decision", decision);
+  const decision = await aj.protect(request, {
+    requested: 5,
+  }); // Deduct 5 tokens from the bucket
 
-  // // @ts-ignore
-  // if (decision?.reason?.remaining === 0) {
-  //   return NextResponse.json(
-  //     {
-  //       error: "No free credit remaining, Try again after 24hours",
-  //       reason: decision.reason,
-  //     },
-  //     { status: 429 }
-  //   );
-  // }
+  // @ts-ignore
+  if (decision?.reason?.remaining === 0) {
+    return NextResponse.json(
+      {
+        error: "No free credit remaining, Try again after 24hours",
+        reason: decision.reason,
+      },
+      { status: 429 }
+    );
+  }
 
   // Upload the file to ImageKit
   try {

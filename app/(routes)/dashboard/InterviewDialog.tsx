@@ -48,12 +48,12 @@ const InterviewDialog = () => {
         }
       );
 
-      // if (result.status === 429) {
-      //   toast.warning(
-      //     "You have exceeded your request limit. Please try again later."
-      //   );
-      //   return;
-      // }
+      if (result.status === 429) {
+        toast.warning(
+          "You have exceeded your request limit. Please try again later."
+        );
+        return;
+      }
       const interviewId = await saveInterviewQuestions({
         interviewQuestions: result?.data?.questions,
         resumeUrl: result.data.resumeUrl || "",
