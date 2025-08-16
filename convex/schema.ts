@@ -16,5 +16,6 @@ export default defineSchema({
         jobTitle: v.union(v.string(),v.null()),
         jobExperience: v.union(v.string(),v.null()),
         jobDescription: v.union(v.string(),v.null()),
+        feedback : v.optional(v.any()), // Optional feedback field
     })
 })

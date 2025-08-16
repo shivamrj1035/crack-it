@@ -8,14 +8,14 @@ const MenuOptions = [
     name: "Dashboard",
     path: "/dashboard",
   },
-  {
-    name: "Upgrade",
-    path: "/upgrade",
-  },
-  {
-    name: "How it works?",
-    path: "/how-it-works",
-  },
+  // {
+  //   name: "Upgrade",
+  //   path: "/upgrade",
+  // },
+  // {
+  //   name: "How it works?",
+  //   path: "/how-it-works",
+  // },
 ];
 
 const AppHeader = () => {
