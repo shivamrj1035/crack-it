@@ -54,9 +54,21 @@ const InterviewCard = ({ interviewInfo }: Props) => {
                 className="p-4"
               >
                 <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                  {interviewInfo.resumeUrl
-                    ? "Resume URL: " + interviewInfo.resumeUrl
-                    : "Experience: " + (interviewInfo.jobExperience || "N/A")}
+                  {interviewInfo.resumeUrl ? (
+                    <>
+                      Resume URL:{" "}
+                      <a
+                        href={interviewInfo.resumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 underline hover:text-blue-700"
+                      >
+                        {interviewInfo.resumeUrl}
+                      </a>
+                    </>
+                  ) : (
+                    "Experience: " + (interviewInfo.jobExperience || "N/A")
+                  )}
                 </p>
                 {interviewInfo.status === "completed" &&
                   interviewInfo.feedback && (

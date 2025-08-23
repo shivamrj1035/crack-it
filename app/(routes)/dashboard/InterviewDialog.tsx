@@ -93,7 +93,7 @@ const InterviewDialog = () => {
             <Tabs defaultValue="resume" className="w-full mt-5">
               <TabsList>
                 <TabsTrigger value="resume">Upload Resume</TabsTrigger>
-                <TabsTrigger value="jd">Job Description</TabsTrigger>
+                {/* <TabsTrigger value="jd">Job Description</TabsTrigger> */}
               </TabsList>
               <TabsContent value="resume">
                 <ResumeUpload
