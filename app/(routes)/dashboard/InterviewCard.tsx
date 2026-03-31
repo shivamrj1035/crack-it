@@ -3,154 +3,231 @@
 import React, { useState, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useOutsideClick } from "@/hooks/use-outside-click";
-import { InterviewData } from "../interview/[interviewId]/start/page"; // Ensure this type includes the optional feedback field
-import { Button } from "@/components/ui/button";
+import { InterviewData } from "../interview/[interviewId]/start/page";
 import Link from "next/link";
+import {
+  ArrowRight,
+  X,
+  ExternalLink,
+  CheckCircle,
+  Clock,
+  Star,
+  MessageSquare,
+  Lightbulb,
+} from "lucide-react";
 
 type Props = {
   interviewInfo: InterviewData;
+  index?: number;
 };
 
-const InterviewCard = ({ interviewInfo }: Props) => {
+const InterviewCard = ({ interviewInfo, index = 0 }: Props) => {
   const [active, setActive] = useState<boolean>(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useOutsideClick(ref, () => setActive(false));
 
+  const isCompleted = interviewInfo.status === "completed";
+  const rating =
+    interviewInfo.feedback && typeof interviewInfo.feedback === "object"
+      ? interviewInfo.feedback.rating
+      : null;
+
   return (
     <>
+      {/* Backdrop */}
       <AnimatePresence>
         {active && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 h-full w-full z-10"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
           />
         )}
       </AnimatePresence>
+
+      {/* Expanded detail modal */}
       <AnimatePresence>
         {active && (
-          <div className="fixed inset-0 grid place-items-center z-[100]">
+          <div className="fixed inset-0 z-50 grid place-items-center p-4">
             <motion.div
               layoutId={`card-${interviewInfo._id}`}
               ref={ref}
-              className="w-full max-w-[500px] h-full md:h-fit md:max-h-[90%] flex flex-col bg-white dark:bg-neutral-900 sm:rounded-3xl overflow-hidden"
+              className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-primary/10"
             >
-              <motion.div
-                layoutId={`title-${interviewInfo._id}`}
-                className="p-4"
-              >
-                <h3 className="font-medium text-neutral-700 dark:text-neutral-200 text-lg">
-                  {interviewInfo.jobTitle || "Resume Based Interview"}
-                </h3>
-                <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                  {interviewInfo.jobDescription ||
-                    "We have generated interview questions based on your resume."}
-                </p>
-              </motion.div>
-              <motion.div
-                layoutId={`content-${interviewInfo._id}`}
-                className="p-4"
-              >
-                <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                  {interviewInfo.resumeUrl ? (
-                    <>
-                      Resume URL:{" "}
-                      <a
-                        href={interviewInfo.resumeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 underline hover:text-blue-700"
-                      >
-                        {interviewInfo.resumeUrl}
-                      </a>
-                    </>
-                  ) : (
-                    "Experience: " + (interviewInfo.jobExperience || "N/A")
-                  )}
-                </p>
-                {interviewInfo.status === "completed" &&
-                  interviewInfo.feedback && (
-                    <div className="mt-4 p-4 border rounded-lg bg-gray-100 dark:bg-neutral-800">
-                      <h4 className="font-bold text-neutral-700 dark:text-neutral-200">
-                        Feedback:
-                      </h4>
-                      {typeof interviewInfo.feedback === "object" ? (
-                        <div className="text-neutral-600 dark:text-neutral-400 text-sm">
-                          {interviewInfo.feedback.feedback && (
-                            <p>
-                              <strong>Feedback:</strong>{" "}
-                              {String(interviewInfo.feedback.feedback)}
-                            </p>
-                          )}
-                          {interviewInfo.feedback.rating && (
-                            <p>
-                              <strong>Rating:</strong>{" "}
-                              {String(interviewInfo.feedback.rating)}
-                            </p>
-                          )}
-                          {interviewInfo.feedback.suggestions && (
-                            <p>
-                              <strong>Suggestions:</strong>{" "}
-                              {String(interviewInfo.feedback.suggestions)}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                          {String(interviewInfo.feedback)} djksdajk
-                        </p>
-                      )}
+              {/* Modal header */}
+              <div className="flex items-start justify-between p-6 border-b border-border">
+                <motion.div layoutId={`title-${interviewInfo._id}`}>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {interviewInfo.jobTitle || "Resume-Based Interview"}
+                  </h3>
+                  {isCompleted && rating && (
+                    <div className="mt-1 flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-3.5 w-3.5 ${
+                            i < Math.round((rating as number) / 2)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted"
+                          }`}
+                        />
+                      ))}
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {String(rating)}/10
+                      </span>
                     </div>
                   )}
-
+                </motion.div>
                 <button
                   onClick={() => setActive(false)}
-                  className="mt-4 px-4 py-2 text-sm rounded-full font-bold bg-green-500 text-white"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                 >
-                  Close
+                  <X className="h-4 w-4" />
                 </button>
-              </motion.div>
+              </div>
+
+              {/* Modal body */}
+              <div className="space-y-4 p-6">
+                {/* Description */}
+                {interviewInfo.jobDescription && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {interviewInfo.jobDescription}
+                  </p>
+                )}
+
+                {/* Resume URL */}
+                {interviewInfo.resumeUrl && (
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+                    <ExternalLink className="h-4 w-4 shrink-0 text-primary" />
+                    <a
+                      href={interviewInfo.resumeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate text-primary hover:underline"
+                    >
+                      View Resume
+                    </a>
+                  </div>
+                )}
+
+                {/* Feedback section */}
+                {isCompleted && interviewInfo.feedback && (
+                  <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      AI Evaluation
+                    </h4>
+
+                    {typeof interviewInfo.feedback === "object" && (
+                      <div className="space-y-2.5">
+                        {interviewInfo.feedback.feedback && (
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                              Feedback
+                            </p>
+                            <p className="text-sm text-foreground">
+                              {String(interviewInfo.feedback.feedback)}
+                            </p>
+                          </div>
+                        )}
+                        {interviewInfo.feedback.suggestions && (
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1">
+                              <Lightbulb className="h-3 w-3" /> Suggestions
+                            </p>
+                            <p className="text-sm text-foreground">
+                              {String(interviewInfo.feedback.suggestions)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <Link href={`/interview/${interviewInfo._id}/start`} className="flex-1">
+                    <button className="btn-gradient w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold">
+                      {isCompleted ? "Retake Interview" : "Start Interview"}
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </Link>
+                  <button
+                    onClick={() => setActive(false)}
+                    className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
       <motion.div
         layoutId={`card-${interviewInfo._id}`}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.05 }}
+        whileHover={{ y: -4, scale: 1.01 }}
         onClick={() => setActive(true)}
-        className="p-4 flex flex-col hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl cursor-pointer shadow-md"
+        className="group relative flex cursor-pointer flex-col rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.05] hover:shadow-xl hover:shadow-primary/5"
       >
-        <div className="flex flex-col gap-2">
-          <motion.h3
-            layoutId={`title-${interviewInfo._id}`}
-            className="font-medium text-neutral-800 dark:text-neutral-200 text-lg"
+        {/* Status badge */}
+        <div className="mb-3 flex items-center justify-between">
+          <motion.div
+            layoutId={`status-${interviewInfo._id}`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              isCompleted
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground"
+            }`}
           >
-            {interviewInfo.jobTitle || "Resume Based Interview"}
-          </motion.h3>
-          <motion.p
-            layoutId={`description-${interviewInfo._id}`}
-            className="text-neutral-600 dark:text-neutral-400 text-sm"
-          >
-            {interviewInfo.jobDescription ||
-              "We have generated interview questions based on your resume."}
-          </motion.p>
-          {interviewInfo.status && (
-            <motion.div
-              layoutId={`status-${interviewInfo._id}`}
-              className={`px-2 py-1 text-xs text-center rounded-full font-bold ${
-                interviewInfo.status === "completed"
-                  ? "bg-green-400 text-white"
-                  : "bg-gray-300 text-black"
-              }`}
-            >
-              {interviewInfo.status}
-            </motion.div>
+            {isCompleted ? (
+              <CheckCircle className="h-3 w-3" />
+            ) : (
+              <Clock className="h-3 w-3" />
+            )}
+            {isCompleted ? "Completed" : "Draft"}
+          </motion.div>
+
+          {rating && (
+            <div className="flex items-center gap-1">
+              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {String(rating)}/10
+              </span>
+            </div>
           )}
         </div>
-        <Link href={`/interview/${interviewInfo._id}/start`}>
-          <button className="mt-4 px-4 py-2 text-sm rounded-full w-full font-bold bg-blue-500 text-white">
-            Start Interview →
+
+        {/* Title */}
+        <motion.h3
+          layoutId={`title-${interviewInfo._id}`}
+          className="mb-1.5 font-semibold text-foreground leading-snug"
+        >
+          {interviewInfo.jobTitle || "Resume-Based Interview"}
+        </motion.h3>
+
+        {/* Description */}
+        <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
+          {interviewInfo.jobDescription ||
+            "AI-generated interview questions based on your resume."}
+        </p>
+
+        {/* CTA */}
+        <Link
+          href={`/interview/${interviewInfo._id}/start`}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-auto"
+        >
+          <button className="btn-gradient group/btn w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold">
+            {isCompleted ? "Retake" : "Start Interview"}
+            <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
           </button>
         </Link>
       </motion.div>

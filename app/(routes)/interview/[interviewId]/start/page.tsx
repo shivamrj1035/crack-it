@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useConvex, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { imageConfigDefault } from "next/dist/shared/lib/image-config";
 import axios from "axios";
 import { useRouter } from "next/navigation"; // Correct import for the app directory
 
@@ -136,7 +135,7 @@ function StartInterview() {
         // @ts-ignore
         interviewRecordId: interviewId,
       });
-      setInterviewData(response);
+      setInterviewData(response as InterviewData);
     } catch (error) {
       console.error("Error fetching interview questions:", error);
       toast.error("Failed to load interview questions.");

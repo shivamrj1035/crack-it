@@ -1,16 +1,26 @@
 import Groq from "groq-sdk";
 
-const apiKey = process.env.GROQ_API_KEY;
-
-if (!apiKey) {
-  throw new Error("GROQ_API_KEY is not set in environment variables");
-}
-
-const groq = new Groq({ apiKey });
-
 // Use llama-3.1-8b-instant for fast, cost-effective responses
 // Free tier: 100k tokens/day, 20 requests/min
 const MODEL = "llama-3.1-8b-instant";
+
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is not set");
+  }
+
+  return new Groq({ apiKey });
+}
+
+export async function getSystemDefault() {
+  return {
+    provider: "groq",
+    apiKey: process.env.GROQ_API_KEY || "",
+    model: MODEL,
+  };
+}
 
 interface InterviewQuestion {
   question: string;
@@ -33,6 +43,7 @@ export async function generateInterviewQuestions(
   jobExperience: string = ""
 ): Promise<InterviewQuestion[]> {
   const prompt = buildQuestionPrompt(resumeText, jobTitle, jobDescription, jobExperience);
+  const groq = getGroqClient();
 
   const completion = await groq.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
@@ -69,6 +80,7 @@ export async function generateInterviewFeedback(
   messages: Array<{ role: string; content: string }>
 ): Promise<InterviewFeedback> {
   const prompt = buildFeedbackPrompt(messages);
+  const groq = getGroqClient();
 
   const completion = await groq.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
