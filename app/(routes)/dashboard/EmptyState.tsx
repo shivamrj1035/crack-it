@@ -4,7 +4,13 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { SparklesIcon, ArrowRight } from "lucide-react";
 
-const EmptyState = () => {
+interface EmptyStateProps {
+  type?: "personal" | "organization";
+}
+
+const EmptyState = ({ type = "personal" }: EmptyStateProps) => {
+  const isPersonal = type === "personal";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -25,20 +31,24 @@ const EmptyState = () => {
       </div>
 
       <h2 className="mb-3 text-2xl font-bold tracking-tight text-foreground">
-        No Interviews Yet
+        {isPersonal ? "No Interviews Yet" : "No Scheduled Interviews"}
       </h2>
-      <p className="mb-8 max-w-sm text-muted-foreground">
-        Create your first AI-powered mock interview and start practicing for your dream role today.
+      <p className="mb-8 max-w-sm text-muted-foreground leading-relaxed">
+        {isPersonal 
+          ? "Create your first AI-powered mock interview and start practicing for your dream role today."
+          : "You don't have any interviews scheduled by organizations yet. They will appear here once an employer invites you."}
       </p>
 
-      <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}>
-        <Link href="/dashboard">
-          <button className="btn-gradient group flex items-center gap-2 rounded-full px-7 py-3 text-sm font-semibold shadow-xl">
-            Create Your First Interview
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </button>
-        </Link>
-      </motion.div>
+      {isPersonal && (
+        <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}>
+          <Link href="/dashboard">
+            <button className="btn-gradient group flex items-center gap-2 rounded-full px-7 py-3 text-sm font-semibold shadow-xl">
+              Create Your First Interview
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </button>
+          </Link>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

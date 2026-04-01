@@ -84,6 +84,13 @@ export const getMyOrganization = query({
   },
 });
 
+export const getById = query({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.organizationId);
+  },
+});
+
 export const updateSettings = mutation({
   args: {
     actorUserId: v.id("users"),

@@ -3,7 +3,7 @@ import { UserDetailsContext } from "@/context/UserDetailsContext";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
-import React, { createContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 const Provider = ({ children }: any) => {
   const { user } = useUser();
@@ -18,6 +18,7 @@ const Provider = ({ children }: any) => {
           name: user.fullName ?? "",
           imageUrl: user.imageUrl ?? "",
           email: user.primaryEmailAddress?.emailAddress ?? "",
+          clerkId: user.id,
         });
         setUserDetails(result);
 
@@ -49,5 +50,5 @@ const Provider = ({ children }: any) => {
 export default Provider;
 
 export const useUserDetails = () => {
-  return createContext(UserDetailsContext);
+  return useContext(UserDetailsContext);
 };

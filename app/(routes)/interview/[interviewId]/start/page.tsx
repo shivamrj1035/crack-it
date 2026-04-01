@@ -1,18 +1,43 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useConvex, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import axios from "axios";
-import { useRouter } from "next/navigation"; // Correct import for the app directory
+import { useProctoring } from "@/app/hooks/useProctoring";
+import { useUserDetails } from "@/app/Provider";
+import VisionProctor from "./VisionProctor";
+import {
+  Plus,
+  Sparkles,
+  AlertCircle,
+  ShieldCheck,
+  Activity,
+  Wifi,
+  Clock,
+  MessageSquare,
+  ChevronRight,
+  LogOut,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Monitor,
+  AlertTriangle,
+  Volume2,
+  Bookmark,
+  ChevronLeft
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 declare global {
   interface Window {
-    SpeechRecognition: typeof window.SpeechRecognition;
-    webkitSpeechRecognition: typeof window.SpeechRecognition;
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
   }
 }
 
@@ -28,7 +53,14 @@ export type InterviewData = {
   }[];
   _id: string;
   status: string;
-  feedback?: any | null; // Mark feedback as optional
+  feedback?: any | null;
+  isOrganization?: boolean;
+  organizationName?: string;
+  hrName?: string;
+  maxDuration?: number;
+  candidateResumeUrl?: string | null;
+  candidateId?: string;
+  organizationId?: string;
 };
 
 type ChatMessage = {
@@ -36,75 +68,155 @@ type ChatMessage = {
   message: string;
 };
 
-type SpeechRecognition = {
-  start: () => void;
-  stop: () => void;
-  lang: string;
-  interimResults: boolean;
-  onresult: (event: any) => void;
-  onerror: (event: any) => void;
+const AIRobot = ({ isSpeaking }: { isSpeaking: boolean }) => {
+  return (
+    <div className="relative flex items-center justify-center w-full h-full max-h-[28vh] min-h-[150px]">
+      <motion.svg
+        viewBox="0 0 200 200"
+        className="w-full h-full max-w-[200px] xl:max-w-[240px] filter drop-shadow-[0_0_30px_rgba(99,102,241,0.2)]"
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      >
+        {/* Robot Head Outer */}
+        <rect x="50" y="40" width="100" height="90" rx="24" className="fill-slate-200 stroke-slate-300 dark:fill-[#0f172a] dark:stroke-[#1e293b]" strokeWidth="2" />
+        {/* Glass Visor */}
+        <rect x="60" y="55" width="80" height="30" rx="8" className="fill-slate-800 dark:fill-[#1e293b]" />
+        <rect x="62" y="57" width="76" height="26" rx="6" className="fill-slate-900 dark:fill-[#020617]" opacity="0.8" />
+
+        {/* Visor Reflection */}
+        <rect x="65" y="59" width="30" height="2" rx="1" fill="white" opacity="0.1" />
+
+        {/* Eyes / Scanning Light */}
+        {isSpeaking ? (
+          <motion.g>
+            <motion.rect
+              x="72" y="65" width="12" height="10" rx="3"
+              fill="#6366f1"
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.95, 1.05, 0.95] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
+            />
+            <motion.rect
+              x="116" y="65" width="12" height="10" rx="3"
+              fill="#6366f1"
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.95, 1.05, 0.95] }}
+              transition={{ duration: 0.5, repeat: Infinity, delay: 0.1 }}
+            />
+            {/* Mouth Audio Waveform */}
+            <motion.path
+              d="M 80 110 Q 100 120 120 110"
+              stroke="#6366f1"
+              strokeWidth="4"
+              strokeLinecap="round"
+              fill="none"
+              animate={{
+                d: [
+                  "M 80 110 Q 100 120 120 110",
+                  "M 80 110 Q 100 100 120 110",
+                  "M 80 110 Q 100 115 120 110"
+                ]
+              }}
+              transition={{ duration: 0.25, repeat: Infinity }}
+            />
+          </motion.g>
+        ) : (
+          <g opacity="0.6">
+            <rect x="74" y="68" width="8" height="4" rx="2" className="fill-slate-400 dark:fill-[#334155]" />
+            <rect x="118" y="68" width="8" height="4" rx="2" className="fill-slate-400 dark:fill-[#334155]" />
+            <path d="M 85 110 Q 100 112 115 110" className="stroke-slate-400 dark:stroke-[#334155]" strokeWidth="2" strokeLinecap="round" fill="none" />
+          </g>
+        )}
+
+        {/* Neck Junction */}
+        <rect x="85" y="130" width="30" height="10" className="fill-slate-300 dark:fill-[#1e293b]" />
+
+        {/* Torso Base */}
+        <path d="M 60 140 Q 100 135 140 140 L 150 180 Q 100 185 50 180 Z" className="fill-slate-200 stroke-slate-300 dark:fill-[#0f172a] dark:stroke-[#1e293b]" strokeWidth="2" />
+
+        {/* Core Light */}
+        <circle cx="100" cy="160" r="10" className="fill-slate-300 dark:fill-[#1e293b]" />
+        {isSpeaking && (
+          <motion.circle
+            cx="100" cy="160" r="10"
+            fill="#6366f1"
+            animate={{ r: [8, 14, 8], opacity: [0.3, 0.8, 0.3] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+        )}
+      </motion.svg>
+
+      {/* Speaking Indicator Ring */}
+      <AnimatePresence>
+        {isSpeaking && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1.2 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute inset-0 border-2 border-primary/20 rounded-full blur-2xl -z-10"
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
-function StartInterview() {
+export default function StartInterview() {
   const { interviewId } = useParams();
+  const router = useRouter();
   const convex = useConvex();
-  const [interviewData, setInterviewData] = useState<InterviewData | null>(
-    null
-  );
-  const [transcription, setTranscription] = useState("");
+  const { userDetails } = useUserDetails() as any;
+  const updateFeedback = useMutation(api.interview.updateInterviewFeedback);
+
+  const [interviewData, setInterviewData] = useState<InterviewData | null>(null);
+  const [orgSettings, setOrgSettings] = useState<any>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [conversation, setConversation] = useState<
-    { from: "bot" | "user"; text: string }[]
-  >([]); // Store the entire conversation
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [userAnswer, setUserAnswer] = useState("");
+  const [transcription, setTranscription] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [userAnswer, setUserAnswer] = useState(""); // Store the user's answer
-  const [hasHeardQuestion, setHasHeardQuestion] = useState(false); // Track if the user has heard the question
-  const [overAllInterviewProgress, setOverAllInterviewProgress] =
-    useState<InterviewData | null>(null); // Track overall progress
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const [isMicOn, setIsMicOn] = useState(true); // State to control microphone
-  const [isCameraOn, setIsCameraOn] = useState(true); // State to control camera
-  const updateFeedback = useMutation(api.interview.updateInterviewFeedback);
-  const toggleMic = () => {
-    setIsMicOn((prev) => !prev);
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const audioTrack = stream.getAudioTracks()[0];
-      audioTrack.enabled = !audioTrack.enabled;
-    }
-  };
-  const router = useRouter();
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [hasHeardQuestion, setHasHeardQuestion] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(true);
+  const [currentMessage, setCurrentMessage] = useState("Initializing Secure Session...");
+  const [conversation, setConversation] = useState<any[]>([]);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [violationHighlight, setViolationHighlight] = useState(false);
+  const [lastViolationMsg, setLastViolationMsg] = useState<string | null>(null);
+  const [personCount, setPersonCount] = useState(1);
 
-  const toggleCamera = () => {
-    setIsCameraOn((prev) => !prev);
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const videoTrack = stream.getVideoTracks()[0];
-      videoTrack.enabled = !videoTrack.enabled;
-    }
-  };
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const motivationalMessages = [
-    "Welldone, moving to next question!",
-    "Great job! Keep it up!",
-    "You're doing amazing!",
-    "Fantastic! Let's tackle the next one!",
-    "Impressive! On to the next question!",
+    "Great answer! Keep going.",
+    "You're doing fantastic!",
+    "That was a thoughtful response.",
+    "Keep up the momentum!",
+    "You're making great progress.",
   ];
-  const [showAnimation, setShowAnimation] = useState(false);
-  const [currentMessage, setCurrentMessage] = useState(motivationalMessages[0]);
+
+  const { reportViolation } = useProctoring({
+    interviewId: interviewId as any,
+    enabled: orgSettings?.requireProctoring ?? true,
+    allowTabSwitch: orgSettings?.allowTabSwitch ?? false,
+    requireFullscreen: orgSettings?.requireFullscreen ?? true,
+    blockCopyPaste: true,
+  });
+
+  const handleReportViolation = (type: string, severity: string, details?: string) => {
+    reportViolation(type, severity, details);
+    if (severity === "HIGH") {
+      setViolationHighlight(true);
+      setLastViolationMsg(details || "Security alert triggered.");
+      setTimeout(() => {
+        setViolationHighlight(false);
+        setLastViolationMsg(null);
+      }, 5000);
+    }
+  };
 
   useEffect(() => {
-    getInterviewQuestions();
-    initializeCamera();
-    initializeSpeechRecognition();
-  }, [interviewId]);
-
-  useEffect(() => {
-    // Load interview state from localStorage on component mount
     const savedState = localStorage.getItem(`interviewState-${interviewId}`);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
@@ -112,22 +224,55 @@ function StartInterview() {
       setCurrentQuestionIndex(parsedState.currentQuestionIndex);
       setChatHistory(parsedState.chatHistory);
     }
+    return () => stopAllMedia();
   }, [interviewId]);
 
   useEffect(() => {
-    // Save interview state to localStorage whenever it changes
+    if (interviewId) {
+      getInterviewQuestions();
+      initializeSpeechRecognition();
+    }
+  }, [interviewId]);
+
+  useEffect(() => {
+    if (userDetails?.organizationId) {
+      getOrgSettings();
+    }
+  }, [userDetails]);
+
+  useEffect(() => {
     if (interviewData) {
       const stateToSave = {
         interviewData,
         currentQuestionIndex,
         chatHistory,
       };
-      localStorage.setItem(
-        `interviewState-${interviewId}`,
-        JSON.stringify(stateToSave)
-      );
+      localStorage.setItem(`interviewState-${interviewId}`, JSON.stringify(stateToSave));
     }
-  }, [interviewData, currentQuestionIndex, chatHistory]);
+  }, [interviewData, currentQuestionIndex, chatHistory, interviewId]);
+
+  const getOrgSettings = async () => {
+    try {
+      const org = await convex.query(api.organizations.getById, {
+        organizationId: userDetails.organizationId,
+      });
+      if (org?.settings) setOrgSettings(org.settings);
+    } catch (error) {
+      console.error("Error fetching org settings:", error);
+    }
+  };
+
+  const stopAllMedia = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
 
   const getInterviewQuestions = async () => {
     try {
@@ -136,214 +281,187 @@ function StartInterview() {
         interviewRecordId: interviewId,
       });
       setInterviewData(response as InterviewData);
-    } catch (error) {
-      console.error("Error fetching interview questions:", error);
-      toast.error("Failed to load interview questions.");
-    }
-  };
 
-  const initializeCamera = async () => {
-    try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
+      streamRef.current = stream;
       if (videoRef.current) {
-        videoRef.current.srcObject = stream as MediaStream;
+        videoRef.current.srcObject = stream;
       }
+
+      setTimeout(() => {
+        setCurrentMessage("Session Link Established");
+        setTimeout(() => setShowAnimation(false), 1500);
+      }, 2000);
     } catch (error) {
       console.error("Error accessing camera or microphone:", error);
       toast.error("Unable to access camera or microphone.");
     }
   };
 
+  const toggleCamera = async () => {
+    if (isCameraOn) {
+      if (streamRef.current) {
+        streamRef.current.getVideoTracks().forEach(track => track.stop());
+      }
+      setIsCameraOn(false);
+      toast.success("Security: Camera track destroyed.");
+    } else {
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (streamRef.current) {
+          const newVideoTrack = videoStream.getVideoTracks()[0];
+          streamRef.current.addTrack(newVideoTrack);
+        } else {
+          streamRef.current = videoStream;
+        }
+        if (videoRef.current) videoRef.current.srcObject = streamRef.current;
+        setIsCameraOn(true);
+        toast.success("Camera feed re-established.");
+      } catch (error) {
+        toast.error("Unable to access camera.");
+      }
+    }
+  };
+
+  const toggleMic = async () => {
+    if (isMicOn) {
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach(track => track.stop());
+      }
+      setIsMicOn(false);
+      toast.info("Microphone hardware disabled.");
+    } else {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (streamRef.current) {
+          const newAudioTrack = audioStream.getAudioTracks()[0];
+          streamRef.current.addTrack(newAudioTrack);
+        } else {
+          streamRef.current = audioStream;
+        }
+        setIsMicOn(true);
+        toast.info("Microphone hardware active.");
+      } catch (error) {
+        toast.error("Unable to access microphone.");
+      }
+    }
+  };
+
   const initializeSpeechRecognition = () => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setTranscription(transcript);
-        setUserAnswer(transcript); // Display the transcription in the text box
-        setIsListening(false);
+        let interimTranscript = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            setUserAnswer((prev) => prev + event.results[i][0].transcript);
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+        setTranscription(interimTranscript);
       };
+
       recognition.onerror = (error: any) => {
         console.error("Speech recognition error:", error);
-
-        // Provide more specific error messages based on the error type
-        const errorMessage =
-          error.error === "no-speech"
-            ? "No speech detected. Please try again."
-            : error.error === "audio-capture"
-              ? "Microphone not accessible. Please check your microphone settings."
-              : error.error === "not-allowed"
-                ? "Permission to use microphone denied. Please allow microphone access."
-                : error.error === "network"
-                  ? "Speech recognition service unavailable. Try refreshing the page or using Chrome."
-                  : "An unknown error occurred during speech recognition.";
-
-        toast.error(errorMessage);
         setIsListening(false);
       };
+      recognition.onend = () => setIsListening(false);
       recognitionRef.current = recognition;
-    } else {
-      toast.error("Speech recognition is not supported in this browser.");
     }
   };
 
   const handleSpeak = () => {
     if (!interviewData) return;
-    const question =
-      interviewData.interviewQuestions[currentQuestionIndex]?.question;
+    const question = interviewData.interviewQuestions[currentQuestionIndex]?.question;
     if (!question) return;
 
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(question);
     utterance.lang = "en-US";
     utterance.onstart = () => {
       setIsSpeaking(true);
-      setHasHeardQuestion(false); // Reset hearing state
+      setHasHeardQuestion(false);
     };
     utterance.onend = () => {
       setIsSpeaking(false);
-      setHasHeardQuestion(true); // Mark question as heard
+      setHasHeardQuestion(true);
     };
     window.speechSynthesis.speak(utterance);
-
-    setChatHistory((prev) => [...prev, { sender: "AI", message: question }]);
-    setConversation((prev) => [...prev, { from: "bot", text: question }]);
   };
 
   const handleListen = () => {
     if (recognitionRef.current) {
       setIsListening(true);
       recognitionRef.current.start();
+    } else {
+      toast.error("Speech recognition not initialized.");
     }
   };
 
   const handleSendAnswer = () => {
     if (!userAnswer.trim()) {
-      toast.error("Please provide an answer before sending.");
+      toast.error("Please provide an answer.");
       return;
     }
 
-    // Append userAnswer to the current question
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+
     if (interviewData) {
       const updatedQuestions = [...interviewData.interviewQuestions];
       updatedQuestions[currentQuestionIndex].userAnswer = userAnswer.trim();
-      setInterviewData({
-        ...interviewData,
-        interviewQuestions: updatedQuestions,
-      });
+      setInterviewData({ ...interviewData, interviewQuestions: updatedQuestions });
     }
 
+    const currentQuestion = interviewData?.interviewQuestions[currentQuestionIndex]?.question;
     setChatHistory((prev) => [
       ...prev,
-      { sender: "User", message: userAnswer.trim() },
+      { sender: "AI", message: currentQuestion || "" },
+      { sender: "User", message: userAnswer.trim() }
     ]);
     setConversation((prev) => [
       ...prev,
-      { from: "user", text: userAnswer.trim() },
-    ]); // Add to conversation
-    setUserAnswer(""); // Clear the text box after sending
+      { from: "bot", text: currentQuestion },
+      { from: "user", text: userAnswer.trim() }
+    ]);
 
-    // Show animation and transition to the next question
-    if (
-      interviewData &&
-      currentQuestionIndex < interviewData.interviewQuestions.length - 1
-    ) {
-      setCurrentMessage(
-        motivationalMessages[
-          Math.floor(Math.random() * motivationalMessages.length)
-        ]
-      );
+    setUserAnswer("");
+    setTranscription("");
+
+    if (interviewData && currentQuestionIndex < interviewData.interviewQuestions.length - 1) {
+      setCurrentMessage(motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)]);
       setShowAnimation(true);
       setTimeout(() => {
         setShowAnimation(false);
         setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setTranscription("");
-        setHasHeardQuestion(false); // Reset hearing state for the next question
-      }, 2000); // Animation duration
+        setHasHeardQuestion(false);
+      }, 2000);
     } else {
-      toast.success("Interview completed!");
-      setOverAllInterviewProgress(interviewData); // Save overall progress
-
-      // Call generateFeedback after completing the interview
+      toast.success("Interview completed! Analyzing results...");
       generateFeedback();
     }
   };
 
-  const handleNextQuestion = () => {
-    if (!userAnswer.trim()) {
-      toast.error("Please answer the current question before proceeding.");
-      return;
-    }
-
-    // Append userAnswer to the current question
-    if (interviewData) {
-      const updatedQuestions = [...interviewData.interviewQuestions];
-      updatedQuestions[currentQuestionIndex].userAnswer = userAnswer.trim();
-      setInterviewData({
-        ...interviewData,
-        interviewQuestions: updatedQuestions,
-      });
-    }
-
-    if (
-      interviewData &&
-      currentQuestionIndex < interviewData.interviewQuestions.length - 1
-    ) {
-      // Show animation
-      setCurrentMessage(
-        motivationalMessages[
-          Math.floor(Math.random() * motivationalMessages.length)
-        ]
-      );
-      setShowAnimation(true);
-      setTimeout(() => {
-        setShowAnimation(false);
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setTranscription("");
-        setUserAnswer(""); // Reset the answer field for the next question
-        setHasHeardQuestion(false); // Reset hearing state for the next question
-      }, 2000); // Animation duration
-    } else {
-      toast.success("Interview completed!");
-      setOverAllInterviewProgress(interviewData); // Save overall progress
-    }
-  };
-
-  const handleExitConversation = () => {
-    toast.info("Exiting the conversation...");
-    // navigate to /dashboard page
-    window.location.href = "/dashboard"; // Redirect to dashboard
-  };
-
-  const handleSubmitInterview = () => {
-    toast.success("Interview submitted successfully!");
-    // Logic to submit the interview
-  };
-
-  // Generate feedback based on the user's performance
   const generateFeedback = async () => {
-    toast.error("Generating feedback, please wait...");
-    if (!interviewData) {
-      toast.error("No interview data available for feedback generation.");
-      return;
-    }
+    if (!interviewData) return;
     try {
-      // Convert conversation to the required JSON string format
       const formattedConversation = JSON.stringify(conversation);
-
       const response = await axios.post("/api/interview-feedback", {
         messages: formattedConversation,
       });
       const feedback = response.data.feedback;
 
-      // Save the feedback to the interview data
-      const result = await updateFeedback({
+      await updateFeedback({
         // @ts-ignore
         interviewRecordId: interviewId,
         feedback: {
@@ -351,205 +469,256 @@ function StartInterview() {
           conversation: formattedConversation,
         },
       });
+      toast.success("Final assessment generated.");
+      router.replace(`/dashboard`);
     } catch (error) {
       console.error("Error generating feedback:", error);
-      toast.error("Failed to generate feedback.");
+      toast.error("Feedback generation failed.");
     }
-    toast.success("Feedback generated successfully!");
-
-    router.replace(`/dashboard`);
   };
+
+  const handleExitConversation = () => {
+    stopAllMedia();
+    router.replace("/dashboard");
+  };
+
+  const sessionLog: { sender: string; message: string }[] = [];
+  if (interviewData && interviewData.interviewQuestions) {
+    interviewData.interviewQuestions.forEach((q, index) => {
+      if (index <= currentQuestionIndex) {
+        if (q.question) sessionLog.push({ sender: "AI", message: q.question });
+        if (q.userAnswer) sessionLog.push({ sender: "User", message: q.userAnswer });
+      }
+    });
+  }
+
   return (
-    <div className="relative mx-auto flex h-screen max-w-7xl flex-col items-center justify-center border border-neutral-200 bg-neutral-100 p-6 shadow-md rounded-3xl dark:border-neutral-800 dark:bg-neutral-900">
-      {/* Full-page animation */}
-      {showAnimation && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
-        >
-          <h1 className="text-4xl font-bold text-white text-center">
-            {currentMessage}
-          </h1>
-        </motion.div>
-      )}
-      {/* Header Section */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col items-center gap-4"
-      >
-        <h1 className="text-2xl font-bold text-center">AI Mock Interviewer</h1>
-        <p className="text-gray-500 text-center">
-          Answer the questions displayed on the screen. Speak clearly after the
-          AI finishes speaking.
-        </p>
-      </motion.div>
+    <div className={`relative h-screen w-full overflow-hidden bg-background font-sans transition-all duration-500 ${violationHighlight ? "ring-[16px] ring-rose-500/30 ring-inset" : ""}`}>
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(99,102,241,0.08),transparent)] pointer-events-none" />
 
-      {/* Main Content */}
-      <div className="grid grid-cols-3 gap-4 mt-8 w-full h-full">
-        {/* AI Chat Section */}
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col items-center justify-center border rounded-lg p-4 bg-neutral-200 dark:bg-neutral-800"
-        >
-          <div
-            className={`w-40 h-40 rounded-full ${
-              isSpeaking
-                ? "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 animate-pulse"
-                : "bg-blue-500"
-            } flex items-center justify-center text-white text-lg`}
-          >
-            AI Bot
-          </div>
-          <p className="mt-4 text-center text-gray-500">
-            {interviewData?.interviewQuestions[currentQuestionIndex]
-              ?.question || "Loading..."}
-          </p>
-          <Button className="mt-4" onClick={handleSpeak} disabled={isSpeaking}>
-            {isSpeaking ? "Speaking..." : "Speak Question"}
-          </Button>
-          <Button
-            className="mt-4"
-            onClick={handleListen}
-            disabled={isSpeaking || isListening || !hasHeardQuestion}
-          >
-            {isListening ? "Listening..." : "Speak Answer"}
-          </Button>
-          <Button
-            className="mt-4"
-            onClick={handleNextQuestion}
-            disabled={
-              !interviewData ||
-              currentQuestionIndex >=
-                interviewData.interviewQuestions.length - 1 ||
-              !userAnswer.trim()
-            }
-          >
-            Next Question →
-          </Button>
-        </motion.div>
+      {/* 1. Monitoring Bar */}
+      <div className="relative z-30 flex h-12 w-full items-center justify-between border-b border-border/30 bg-muted/20 px-8 backdrop-blur-sm shrink-0">
+        <div className="flex items-center gap-6">
+          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-2 px-3 py-1 font-black italic tracking-tighter">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            LIVE SECURITY
+          </Badge>
 
-        {/* Camera Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col items-center justify-center border rounded-lg p-4 bg-neutral-200 dark:bg-neutral-800"
-        >
-          {/* Progress Indicator */}
-          <div className="flex gap-1 mb-4">
-            {interviewData?.interviewQuestions.map((_, index) => (
-              <div
-                key={index}
-                className={`w-4 h-4 border-2 rounded ${
-                  index < currentQuestionIndex
-                    ? "bg-green-500"
-                    : index === currentQuestionIndex
-                      ? "bg-blue-500"
-                      : "bg-white"
-                }`}
-              ></div>
-            ))}
+          <div className="flex items-center gap-6 border-l border-border/50 pl-6 h-4">
+            <div className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ${personCount === 1 ? "text-emerald-500" : "text-rose-500 animate-pulse"}`}>
+              <ShieldCheck className="h-3.5 w-3.5" />
+              VISION_SYNC: {personCount === 1 ? "SECURE" : "VIOLATION"}
+            </div>
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-primary/70">
+              <Activity className="h-3.5 w-3.5" />
+              BIO_DETECTION: ACTIVE
+            </div>
           </div>
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="rounded-lg w-full h-auto"
-          ></video>
-          <p className="mt-4 text-center text-gray-500">
-            Your camera feed is displayed here.
-          </p>
-          {/* Mic and Camera Control Buttons */}
-          <div className="flex gap-4 mt-4">
-            <button
-              onClick={toggleMic}
-              className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-110 ${
-                isMicOn ? "bg-green-500" : "bg-red-500"
-              }`}
-              title={isMicOn ? "Mute Microphone" : "Unmute Microphone"} // Tooltip
-            >
-              <img
-                src={isMicOn ? "/unmute.png" : "/mute.png"}
-                alt={isMicOn ? "Unmute" : "Mute"}
-                className="w-6 h-6"
-              />
-            </button>
-            <button
-              onClick={toggleCamera}
-              className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-110 ${
-                isCameraOn ? "bg-green-500" : "bg-red-500"
-              }`}
-              title={isCameraOn ? "Turn Off Camera" : "Turn On Camera"} // Tooltip
-            >
-              <img
-                src={isCameraOn ? "/cam-on.png" : "/cam-off.png"}
-                alt={isCameraOn ? "Camera On" : "Camera Off"}
-                className="w-6 h-6"
-              />
-            </button>
-          </div>
-        </motion.div>
+        </div>
 
-        {/* Chat Section */}
-        <motion.div
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col items-center justify-center border rounded-lg p-4 bg-neutral-200 dark:bg-neutral-800"
-        >
-          <div className="w-full h-64 overflow-y-auto border rounded-lg p-4 bg-white dark:bg-black">
-            {chatHistory.map((chat, index) => (
-              <p
-                key={index}
-                className={`text-sm ${
-                  chat.sender === "AI" ? "text-blue-500" : "text-green-500"
-                }`}
-              >
-                <strong>{chat.sender}:</strong> {chat.message}
-              </p>
-            ))}
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex h-1.5 w-32 bg-muted rounded-full overflow-hidden">
+            <motion.div initial={{ width: "0%" }} animate={{ width: `${((currentQuestionIndex + 1) / (interviewData?.interviewQuestions.length || 1)) * 100}%` }} className="h-full bg-primary" />
           </div>
-          <textarea
-            className="mt-4 w-full p-2 border rounded-lg"
-            placeholder="Your answer..."
-            value={userAnswer}
-            onChange={(e) => setUserAnswer(e.target.value)} // Allow manual editing
-          />
-          <Button
-            className="mt-4"
-            onClick={handleSendAnswer}
-            disabled={!userAnswer.trim()}
-          >
-            Send Answer
+          <Button variant="ghost" size="sm" onClick={handleExitConversation} className="text-rose-500 hover:bg-rose-500/5 font-bold text-[9px] uppercase tracking-widest px-4">
+            Terminate Session
           </Button>
-          <Button
-            className="mt-4 bg-red-500 text-white"
-            onClick={handleExitConversation}
-          >
-            Exit Conversation
-          </Button>
-          <Button
-            className="mt-4 bg-green-500 text-white"
-            onClick={handleSubmitInterview}
-            disabled={
-              !interviewData ||
-              currentQuestionIndex < interviewData.interviewQuestions.length - 1
-            }
-          >
-            Submit Interview
-          </Button>
-        </motion.div>
+        </div>
       </div>
+
+      {/* 2. Main 3-Grid Workspace */}
+      <main className="relative flex h-[calc(100vh-48px)] overflow-hidden">
+
+        {/* LEFT: AI INTERVIEWER */}
+        <div className="w-1/3 flex flex-col items-center justify-between p-6 xl:p-8 border-r border-border/30 bg-muted/5 relative">
+          <div className="flex flex-col items-center gap-2 w-full">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 border border-primary/20 mb-4">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="text-[8px] xl:text-[9px] font-black uppercase tracking-[0.2em] text-primary">Protocol Interface</span>
+            </div>
+            <AIRobot isSpeaking={isSpeaking} />
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            key={currentQuestionIndex}
+            className="w-full p-5 xl:p-6 bg-background/80 backdrop-blur-xl border border-border/50 rounded-[2rem] shadow-2xl relative overflow-hidden flex-shrink-0 flex flex-col gap-3"
+          >
+            <div className="absolute top-0 left-0 h-1 bg-primary/20 w-full overflow-hidden">
+              <motion.div animate={{ x: ["-100%", "100%"] }} transition={{ duration: 3, repeat: Infinity }} className="h-full w-1/2 bg-primary" />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] xl:text-[10px] font-black text-primary uppercase tracking-[0.3em] opacity-50">Transmitting Inquiry</span>
+              <Button onClick={handleSpeak} disabled={isSpeaking} variant="ghost" size="sm" className="h-6 px-2 text-[10px] uppercase tracking-wider text-primary hover:bg-primary/10 hover:text-primary">
+                <Volume2 className="h-3 w-3 mr-1" /> Re-listen
+              </Button>
+            </div>
+            <p className="text-sm xl:text-base font-semibold tracking-tight text-foreground leading-relaxed italic max-h-[15vh] overflow-y-auto custom-scrollbar pr-2">
+              {interviewData?.interviewQuestions[currentQuestionIndex]?.question || "Synchronizing data stream..."}
+            </p>
+          </motion.div>
+        </div>
+
+        {/* MIDDLE: CANDIDATE HUB */}
+        <div className="w-1/3 flex flex-col items-center justify-center p-6 xl:p-8 bg-background relative border-r border-border/30">
+          <div className="w-full max-w-lg flex flex-col h-full justify-center space-y-4 xl:space-y-6">
+            <div className={`relative w-full aspect-[4/3] rounded-[2rem] xl:rounded-[2.5rem] overflow-hidden border-4 xl:border-8 flex-shrink-0 transition-all duration-700 ${violationHighlight ? "border-rose-500 scale-[1.02] shadow-2xl" : "border-muted shadow-xl"}`}>
+              <VisionProctor
+                videoRef={videoRef}
+                reportViolation={handleReportViolation}
+                enabled={(orgSettings?.requireProctoring ?? true) && isCameraOn}
+                onPersonCountChange={setPersonCount}
+              />
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className={`h-full w-full object-cover transition-opacity duration-700 ${isCameraOn ? "opacity-100" : "opacity-10"}`}
+              />
+              {!isCameraOn && (
+                <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 border border-white/5">
+                  <VideoOff className="h-16 w-16 text-neutral-800" />
+                </div>
+              )}
+
+              <div className="absolute inset-0 pointer-events-none p-4 xl:p-6 flex flex-col justify-between">
+                <div className="flex justify-between items-start">
+                  <div className="px-2 xl:px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2">
+                    <div className={`h-1.5 w-1.5 rounded-full ${isCameraOn ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                    <span className="text-[7px] xl:text-[8px] font-bold text-white uppercase font-mono tracking-widest">FEED_STABLE</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <Button onClick={toggleMic} variant={isMicOn ? "outline" : "destructive"} size="icon" className="rounded-full shadow-sm h-10 w-10">
+                  {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                </Button>
+                <Button onClick={toggleCamera} variant={isCameraOn ? "outline" : "destructive"} size="icon" className="rounded-full shadow-sm h-10 w-10">
+                  {isCameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))} disabled={currentQuestionIndex === 0} variant="outline" size="icon" className="rounded-full shadow-sm h-10 w-10">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="rounded-full shadow-sm h-10 w-10">
+                  <Bookmark className="h-4 w-4" />
+                </Button>
+                <Button onClick={() => setCurrentQuestionIndex(prev => Math.min((interviewData?.interviewQuestions.length || 1) - 1, prev + 1))} disabled={!interviewData || currentQuestionIndex === interviewData.interviewQuestions.length - 1} variant="outline" size="icon" className="rounded-full shadow-sm h-10 w-10">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Violation Alert Under Camera */}
+            <div className="h-12 xl:h-14 flex flex-col justify-center flex-shrink-0">
+              <AnimatePresence mode="wait">
+                {lastViolationMsg && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="p-3 xl:p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl xl:rounded-2xl flex items-center gap-3 text-rose-600 shadow-lg shadow-rose-500/5"
+                  >
+                    <AlertTriangle className="h-4 w-4 xl:h-5 xl:w-5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-[8px] xl:text-[9px] font-black uppercase tracking-widest opacity-60">Security Violation</p>
+                      <p className="text-[10px] xl:text-xs font-bold leading-none line-clamp-1">{lastViolationMsg}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="flex flex-col gap-3 xl:gap-4 flex-1 justify-end pb-4">
+              <AnimatePresence>
+                {(transcription || userAnswer) && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 xl:p-6 bg-muted/30 border border-border/50 rounded-xl xl:rounded-[2rem] text-xs xl:text-sm italic text-muted-foreground leading-relaxed shadow-inner overflow-y-auto max-h-[15vh]">
+                    "{transcription || userAnswer}"
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="flex items-center gap-3 xl:gap-4 flex-shrink-0">
+                <Button
+                  onClick={handleListen}
+                  disabled={isSpeaking || isListening || !hasHeardQuestion}
+                  className={`flex-1 h-12 xl:h-14 rounded-full xl:rounded-[2rem] text-sm xl:text-base font-black tracking-tighter transition-all active:scale-95 ${isListening ? "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30" : "btn-gradient shadow-xl"}`}
+                >
+                  {isListening ? "UPLINKING..." : "RECORD RESPONSE"}
+                </Button>
+                <Button onClick={handleSendAnswer} disabled={!interviewData || !userAnswer.trim()} variant="outline" className="h-12 w-12 xl:h-14 xl:w-14 rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/20 transition-all hover:scale-105 shrink-0">
+                  <ChevronRight className="h-6 w-6" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: SESSION LOG */}
+        <aside className="w-1/3 flex flex-col bg-muted/5 relative">
+          <div className="p-4 xl:p-6 border-b border-border/20 bg-background/50 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2 xl:gap-3">
+              <MessageSquare className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-primary" />
+              <h3 className="text-[10px] xl:text-xs font-black uppercase tracking-[0.2em] text-foreground">Session Log</h3>
+            </div>
+            <span className="text-[9px] xl:text-[10px] font-mono text-muted-foreground opacity-50">SYNC_ID: #FF92</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 xl:p-8 flex flex-col gap-4 custom-scrollbar">
+            {sessionLog.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-3 xl:space-y-4 opacity-10">
+                <Activity className="h-10 w-10 xl:h-12 xl:w-12" />
+                <p className="text-[8px] xl:text-[9px] font-black uppercase tracking-[0.3em]">Awaiting Data Input</p>
+              </div>
+            )}
+            {sessionLog.map((chat, index) => (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                key={index}
+                className={`flex flex-col w-full max-w-[85%] ${chat.sender === "AI" ? "self-start items-start" : "self-end items-end"}`}
+              >
+                <div className={`text-[7px] xl:text-[8px] font-black uppercase tracking-[0.2em] mb-1.5 opacity-50 ${chat.sender === "AI" ? "ml-2" : "mr-2"}`}>
+                  {chat.sender === "AI" ? "AGENT_PROTOCOL" : "CANDIDATE_RESPONSE"}
+                </div>
+                <div className={`p-4 xl:p-5 text-xs xl:text-sm leading-relaxed shadow-sm ${chat.sender === "AI"
+                    ? "bg-background border border-border/50 rounded-2xl rounded-tl-sm text-foreground"
+                    : "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
+                  }`}>
+                  {chat.message}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </aside>
+      </main>
+
+      {/* Overlays */}
+      <AnimatePresence>
+        {showAnimation && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-3xl bg-background/60">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass p-12 rounded-[4rem] border-primary/20 text-center shadow-2xl relative overflow-hidden max-w-sm">
+              <div className="flex flex-col items-center">
+                <div className="h-16 w-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-2xl mb-8 animate-bounce">
+                  <Sparkles className="h-8 w-8" />
+                </div>
+                <h1 className="text-2xl font-black text-foreground mb-4 uppercase italic tracking-tighter">{currentMessage}</h1>
+                <div className="h-1.5 w-32 bg-muted rounded-full overflow-hidden">
+                  <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 1.5 }} className="h-full w-full bg-primary origin-left" />
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
-export default StartInterview;

@@ -4,12 +4,14 @@ import React, { useContext, useEffect, useState } from "react";
 import EmptyState from "./EmptyState";
 import InterviewDialog from "./InterviewDialog";
 import { useConvex } from "convex/react";
-import { UserDetailsContext } from "@/context/UserDetailsContext";
+import { useUserDetails } from "@/app/Provider";
 import { api } from "@/convex/_generated/api";
 import { InterviewData } from "../interview/[interviewId]/start/page";
 import InterviewCard from "./InterviewCard";
 import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const SkeletonCard = ({ index }: { index: number }) => (
   <motion.div
@@ -31,10 +33,11 @@ const SkeletonCard = ({ index }: { index: number }) => (
 
 const DashboardPage = () => {
   const { user } = useUser();
-  const [interviewList, setInterviewList] = useState<InterviewData[]>([]);
+  const [personalInterviews, setPersonalInterviews] = useState<InterviewData[]>([]);
+  const [orgInterviews, setOrgInterviews] = useState<InterviewData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const convex = useConvex();
-  const { userDetails } = useContext(UserDetailsContext);
+  const { userDetails } = useUserDetails() as any;
 
   useEffect(() => {
     if (userDetails?._id) {
@@ -48,12 +51,16 @@ const DashboardPage = () => {
     const result = await convex.query(api.interview.getInterviewList, {
       userId: userDetails._id,
     });
-    setInterviewList(result as InterviewData[]);
+    setPersonalInterviews((result as any).personal || []);
+    setOrgInterviews((result as any).organization || []);
     setIsLoading(false);
   };
 
+  const totalInterviews = personalInterviews.length + orgInterviews.length;
+  const allInterviews = [...personalInterviews, ...orgInterviews];
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-10">
       {/* Hero banner */}
       <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-primary/5 via-background to-accent/10">
         <div className="absolute inset-0 -z-10">
@@ -90,22 +97,22 @@ const DashboardPage = () => {
             </div>
 
             {/* Stats row */}
-            {!isLoading && interviewList.length > 0 && (
+            {!isLoading && totalInterviews > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-6 flex flex-wrap items-center justify-center gap-3"
+                className="mt-6 flex flex-wrap items-center justify-center xl:justify-end gap-3"
               >
                 {[
-                  { label: "Total Sessions", value: interviewList.length },
+                  { label: "Total Sessions", value: totalInterviews },
                   {
                     label: "Completed",
-                    value: interviewList.filter((i) => i.status === "completed").length,
+                    value: allInterviews.filter((i) => i.status === "completed").length,
                   },
                   {
                     label: "Pending",
-                    value: interviewList.filter((i) => i.status !== "completed").length,
+                    value: allInterviews.filter((i) => i.status !== "completed").length,
                   },
                 ].map((stat) => (
                   <div
@@ -118,6 +125,7 @@ const DashboardPage = () => {
                 ))}
               </motion.div>
             )}
+
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -138,17 +146,51 @@ const DashboardPage = () => {
               <SkeletonCard key={i} index={i} />
             ))}
           </div>
-        ) : interviewList.length === 0 ? (
-          <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {interviewList.map((interview, i) => (
-              <InterviewCard key={interview._id} interviewInfo={interview} index={i} />
-            ))}
-          </div>
+          <Tabs defaultValue="personal" className="w-full">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">Your Interviews</h2>
+                <p className="text-sm text-muted-foreground mt-1">Manage your company-scheduled and self-practice mock interviews.</p>
+              </div>
+              <TabsList className="bg-background border border-border">
+                <TabsTrigger value="personal" className="data-[state=active]:bg-primary/10">
+                  Personal Practice
+                  <span className="ml-2 bg-primary/20 font-bold text-primary text-[10px] px-2 py-0.5 rounded-full">{personalInterviews.length}</span>
+                </TabsTrigger>
+                <TabsTrigger value="organization" className="data-[state=active]:bg-primary/10">
+                  By Organizations
+                  <span className="ml-2 bg-primary/20 font-bold text-primary text-[10px] px-2 py-0.5 rounded-full">{orgInterviews.length}</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="organization" className="focus-visible:outline-none">
+              {orgInterviews.length === 0 ? (
+                <EmptyState type="organization" />
+              ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {orgInterviews.map((interview, i) => (
+                    <InterviewCard key={interview._id} interviewInfo={interview} index={i} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="personal" className="focus-visible:outline-none">
+              {personalInterviews.length === 0 ? (
+                <EmptyState type="personal" />
+              ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {personalInterviews.map((interview, i) => (
+                    <InterviewCard key={interview._id} interviewInfo={interview} index={i} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
-      </div>
-    </div>
+      </div>    </div>
   );
 };
 

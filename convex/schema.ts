@@ -124,6 +124,7 @@ export default defineSchema({
     rateLimitPerMinute: v.optional(v.number()),
     // Model preferences for this key
     preferredModel: v.optional(v.string()), // e.g., "llama-3.1-8b-instant"
+    baseUrl: v.optional(v.string()), // For Ollama, Kimi, etc.
     createdBy: v.id("users"),
   })
     .index("by_organization", ["organizationId"])
@@ -194,7 +195,7 @@ export default defineSchema({
   // ==================== INTERVIEWS ====================
   interviews: defineTable({
     organizationId: v.id("organizations"),
-    candidateId: v.id("candidates"),
+    candidateId: v.optional(v.id("candidates")),
     interviewerTypeId: v.id("interviewerTypes"),
     // Who created/conducting
     createdBy: v.id("users"),
@@ -396,6 +397,23 @@ export default defineSchema({
     .index("by_organization", ["organizationId"])
     .index("by_candidate", ["candidateId"])
     .index("by_status", ["organizationId", "status"]),
+
+  // ==================== IN-APP NOTIFICATIONS ====================
+  inAppNotifications: defineTable({
+    userId: v.id("users"), // The user receiving the notification
+    title: v.string(), // "You have been moved to Interviewing"
+    message: v.string(), // "Organization X has moved you..."
+    type: v.string(), // "status_update", "interview_scheduled", "resume_request"
+    linkUrl: v.optional(v.string()), // e.g., link to take interview or upload resume
+    isRead: v.boolean(),
+    createdAt: v.number(),
+    // Context links
+    organizationId: v.optional(v.id("organizations")),
+    interviewId: v.optional(v.id("interviews")),
+    candidateId: v.optional(v.id("candidates")),
+  })
+    .index("by_user", ["userId"])
+    .index("by_unread", ["userId", "isRead"]),
 
   // ==================== LEGACY TABLES (for migration) ====================
   userTable: defineTable({

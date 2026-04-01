@@ -14,10 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeUpload from "./ResumeUpload";
 import JobDescription from "./JobDescription";
 import axios from "axios";
-import { Loader2, Plus, FileText, Briefcase } from "lucide-react";
-import { useMutation } from "convex/react";
+import { Loader2, Plus, FileText, Briefcase, Sparkles } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { UserDetailsContext } from "@/context/UserDetailsContext";
+import type { Id } from "@/convex/_generated/dataModel";
+import { useUserDetails } from "@/app/Provider";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "motion/react";
@@ -26,7 +27,12 @@ const InterviewDialog = () => {
   const [formData, setFormData] = useState<any>();
   const [files, setFiles] = useState<File | null>();
   const [loading, setLoading] = useState(false);
-  const { userDetails } = useContext(UserDetailsContext);
+  const [selectedRole, setSelectedRole] = useState<Id<"interviewerTypes"> | "">("");
+  const { userDetails } = useUserDetails() as any;
+  const interviewerTypes = useQuery(
+    api.interviewerTypes.list, 
+    userDetails?.organizationId ? { organizationId: userDetails.organizationId } : "skip"
+  );
   const saveInterviewQuestions = useMutation(api.interview.saveInterviewQuestions);
   const router = useRouter();
 
@@ -36,7 +42,9 @@ const InterviewDialog = () => {
     formData_.append("resume", files || "");
     formData_.append("jobTitle", formData?.jobTitle || "");
     formData_.append("jobExperience", formData?.jobExperience || "");
-    formData_.append("jobDescription", formData?.jobDescription || "");
+     formData_.append("jobDescription", formData?.jobDescription || "");
+    formData_.append("interviewerTypeId", selectedRole);
+    formData_.append("organizationId", userDetails?.organizationId || "");
 
     try {
       const result = await axios.post("/api/generate-interview-questions", formData_, {
@@ -55,6 +63,7 @@ const InterviewDialog = () => {
         jobTitle: formData?.jobTitle || "",
         jobExperience: formData?.jobExperience || "",
         jobDescription: formData?.jobDescription || "",
+        interviewerTypeId: selectedRole || undefined,
       });
 
       router.push(`/interview/${interviewId}`);
@@ -86,9 +95,9 @@ const InterviewDialog = () => {
         </motion.button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg border-border bg-card p-0 shadow-2xl shadow-primary/10 overflow-hidden rounded-2xl">
+      <DialogContent className="sm:max-w-xl border-border bg-card p-0 shadow-2xl shadow-primary/10 overflow-hidden rounded-2xl max-h-[85vh] flex flex-col">
         {/* Modal header with gradient accent */}
-        <div className="relative border-b border-border px-6 py-5 bg-gradient-to-r from-primary/5 to-accent/10">
+        <div className="relative border-b border-border px-6 py-5 bg-gradient-to-r from-primary/5 to-accent/10 flex-shrink-0">
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/5 to-transparent" />
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -103,8 +112,8 @@ const InterviewDialog = () => {
           </DialogHeader>
         </div>
 
-        {/* Tabs */}
-        <div className="px-6 py-4">
+        {/* Scrollable Content Area */}
+        <div className="overflow-y-auto flex-grow px-6 py-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 shadow-inner">
           <Tabs defaultValue="resume" className="w-full">
             <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted/60">
               <TabsTrigger value="resume" className="rounded-lg flex items-center gap-1.5 text-sm">
@@ -119,14 +128,37 @@ const InterviewDialog = () => {
             <TabsContent value="resume" className="mt-4">
               <ResumeUpload setFiles={(file: File) => setFiles(file)} />
             </TabsContent>
-            <TabsContent value="jd" className="mt-4">
+             <TabsContent value="jd" className="mt-4">
               <JobDescription onHandleInputChange={onHandleInputChange} />
             </TabsContent>
           </Tabs>
+
+          <div className="mt-6 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Interviewer Role (Optional)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {interviewerTypes?.map((type: any) => (
+                <button
+                  key={type._id}
+                  onClick={() => setSelectedRole(type._id)}
+                  className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${
+                    selectedRole === type._id 
+                    ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                    : "border-border bg-muted/40 hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs font-semibold">{type.name}</span>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">{type.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
-        <DialogFooter className="flex gap-3 border-t border-border px-6 py-4">
+        <DialogFooter className="flex gap-3 border-t border-border px-6 py-4 flex-shrink-0">
           <DialogClose asChild>
             <button className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
               Cancel

@@ -11,9 +11,8 @@ import { Moon, Sun, LayoutDashboard, Users, BarChart3, BriefcaseIcon } from "luc
 
 const MenuOptions = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { name: "Interviewers", path: "/admin/interviewers", icon: BriefcaseIcon },
-  { name: "Talent", path: "/admin/talent", icon: Users },
-  { name: "Analytics", path: "/admin/analytics", icon: BarChart3 },
+  { name: "Candidates", path: "/dashboard/candidates", icon: Users },
+  { name: "Settings", path: "/dashboard/settings", icon: BarChart3 },
 ];
 
 const AppHeader = () => {
@@ -28,6 +27,8 @@ const AppHeader = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  if (pathname?.includes('/start')) return null;
 
   return (
     <nav

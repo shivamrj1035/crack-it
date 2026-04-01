@@ -65,8 +65,8 @@ export const create = mutation({
 
 export const list = query({
   args: {
-    actorUserId: v.id("users"),
-    organizationId: v.id("organizations"),
+    actorUserId: v.optional(v.id("users")),
+    organizationId: v.optional(v.id("organizations")),
     status: v.optional(v.string()),
     interviewerTypeId: v.optional(v.id("interviewerTypes")),
     assignedTo: v.optional(v.id("users")),
@@ -74,12 +74,15 @@ export const list = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
+    if (!args.actorUserId || !args.organizationId) {
+      return [];
+    }
     await assertOrgAccess(ctx, args.actorUserId, args.organizationId);
 
     let candidates = await ctx.db
       .query("candidates")
       .withIndex("by_organization", (q) =>
-        q.eq("organizationId", args.organizationId)
+        q.eq("organizationId", args.organizationId!)
       )
       .collect();
 
@@ -105,32 +108,54 @@ export const list = query({
   },
 });
 
-export const getPipelineOverview = query({
+export const getById = query({
   args: {
     actorUserId: v.id("users"),
-    organizationId: v.id("organizations"),
+    id: v.id("candidates"),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    await assertOrgAccess(ctx, args.actorUserId, args.organizationId);
+    const candidate = await ctx.db.get(args.id);
+    if (!candidate) return null;
+    
+    await assertOrgAccess(ctx, args.actorUserId, candidate.organizationId);
+    return candidate;
+  },
+});
+
+export const getPipelineOverview = query({
+  args: {
+    actorUserId: v.optional(v.id("users")),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    if (!args.actorUserId || !args.organizationId) {
+      return { statusCounts: [], recentActivity: [], benchSummary: { total: 0, highPriority: 0, dueFollowUps: 0 } };
+    }
+
+    const orgId = args.organizationId;
+    const actorId = args.actorUserId;
+
+    await assertOrgAccess(ctx, actorId, orgId);
 
     const [candidates, benchEntries, activityLogs] = await Promise.all([
       ctx.db
         .query("candidates")
         .withIndex("by_organization", (q) =>
-          q.eq("organizationId", args.organizationId)
+          q.eq("organizationId", orgId)
         )
         .collect(),
       ctx.db
         .query("benchPool")
         .withIndex("by_organization", (q) =>
-          q.eq("organizationId", args.organizationId)
+          q.eq("organizationId", orgId)
         )
         .collect(),
       ctx.db
         .query("activityLogs")
         .withIndex("by_organization", (q) =>
-          q.eq("organizationId", args.organizationId)
+          q.eq("organizationId", orgId)
         )
         .collect(),
     ]);
@@ -150,16 +175,21 @@ export const getPipelineOverview = query({
         status,
         count: candidates.filter((candidate) => candidate.status === status).length,
       })),
-      recentActivity: activityLogs
+      recentActivity: (activityLogs || [])
+        .filter(log => log && typeof log.timestamp === "number")
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, 10),
       benchSummary: {
-        total: benchEntries.filter((entry) => entry.isAvailable).length,
-        highPriority: benchEntries.filter(
-          (entry) => entry.isAvailable && entry.priority === "high"
+        total: (benchEntries || []).filter((entry) => entry && entry.isAvailable).length,
+        highPriority: (benchEntries || []).filter(
+          (entry) => entry && entry.isAvailable && entry.priority === "high"
         ).length,
-        dueFollowUps: benchEntries.filter(
-          (entry) => entry.isAvailable && entry.followUpDate && entry.followUpDate <= Date.now()
+        dueFollowUps: (benchEntries || []).filter(
+          (entry) => 
+            entry && 
+            entry.isAvailable && 
+            entry.followUpDate && 
+            entry.followUpDate < Date.now()
         ).length,
       },
     };
@@ -203,6 +233,8 @@ export const update = mutation({
     await ctx.db.patch(args.id, updates);
 
     if (args.status && args.status !== candidate.status) {
+      const org = await ctx.db.get(candidate.organizationId);
+      
       await ctx.db.insert("activityLogs", {
         organizationId: candidate.organizationId,
         userId: user._id,
@@ -212,6 +244,27 @@ export const update = mutation({
         description: `Candidate "${candidate.name}" moved from "${candidate.status}" to "${args.status}"`,
         timestamp: Date.now(),
       });
+
+      // Find if this candidate has an active user account (by email) to send an in-app notification
+      const targetUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id") // We can't index by email directly if there's no index, let's filter
+        .filter(q => q.eq(q.field("email"), candidate.email))
+        .first();
+
+      if (targetUser) {
+        const friendlyStatus = args.status.charAt(0).toUpperCase() + args.status.slice(1);
+        await ctx.db.insert("inAppNotifications", {
+          userId: targetUser._id,
+          title: "Application Status Update",
+          message: `${org?.name || "An organization"} has updated your application status to "${friendlyStatus}".`,
+          type: "status_update",
+          isRead: false,
+          createdAt: Date.now(),
+          organizationId: candidate.organizationId,
+          candidateId: candidate._id,
+        });
+      }
     }
   },
 });
@@ -445,5 +498,28 @@ export const queueReengagement = mutation({
     });
 
     return notificationId;
+  },
+});
+
+export const updateCandidateResume = mutation({
+  args: {
+    candidateId: v.id("candidates"),
+    resumeUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.candidateId, { resumeUrl: args.resumeUrl });
+  },
+});
+
+export const deleteCandidate = mutation({
+  args: {
+    actorUserId: v.id("users"),
+    id: v.id("candidates"),
+  },
+  handler: async (ctx, args) => {
+    const candidate = await ctx.db.get(args.id);
+    if (!candidate) throw new Error("Candidate not found");
+
+    await ctx.db.delete(args.id);
   },
 });

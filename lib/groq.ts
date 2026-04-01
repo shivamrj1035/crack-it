@@ -4,11 +4,17 @@ import Groq from "groq-sdk";
 // Free tier: 100k tokens/day, 20 requests/min
 const MODEL = "llama-3.1-8b-instant";
 
-function getGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY;
+interface AIConfig {
+  apiKey?: string;
+  model?: string;
+  provider?: string;
+}
+
+function getGroqClient(config?: AIConfig) {
+  const apiKey = config?.apiKey || process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is not set");
+    throw new Error("AI provider API key is not set. Please configure BYOK in settings.");
   }
 
   return new Groq({ apiKey });
@@ -40,14 +46,22 @@ export async function generateInterviewQuestions(
   resumeText: string | null,
   jobTitle: string = "",
   jobDescription: string = "",
-  jobExperience: string = ""
+  jobExperience: string = "",
+  config?: AIConfig,
+  customSystemPrompt?: string
 ): Promise<InterviewQuestion[]> {
   const prompt = buildQuestionPrompt(resumeText, jobTitle, jobDescription, jobExperience);
-  const groq = getGroqClient();
+  const groq = getGroqClient(config);
+  const model = config?.model || MODEL;
+
+  const messages: any[] = [
+    { role: "system", content: customSystemPrompt || "You are an expert technical interviewer." },
+    { role: "user", content: prompt }
+  ];
 
   const completion = await groq.chat.completions.create({
-    messages: [{ role: "user", content: prompt }],
-    model: MODEL,
+    messages: messages,
+    model: model,
     temperature: 0.7,
     max_tokens: 2048,
   });
@@ -56,7 +70,6 @@ export async function generateInterviewQuestions(
 
   // Parse JSON from response
   try {
-    // Try to extract JSON from markdown code blocks if present
     const jsonMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/) ||
                       responseText.match(/```\n?([\s\S]*?)\n?```/) ||
                       [null, responseText];
@@ -77,14 +90,16 @@ export async function generateInterviewQuestions(
  * Generate feedback from interview conversation
  */
 export async function generateInterviewFeedback(
-  messages: Array<{ role: string; content: string }>
+  messages: Array<{ role: string; content: string }>,
+  config?: AIConfig
 ): Promise<InterviewFeedback> {
   const prompt = buildFeedbackPrompt(messages);
-  const groq = getGroqClient();
+  const groq = getGroqClient(config);
+  const model = config?.model || MODEL;
 
   const completion = await groq.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
-    model: MODEL,
+    model: model,
     temperature: 0.5,
     max_tokens: 2048,
   });
@@ -93,7 +108,6 @@ export async function generateInterviewFeedback(
 
   // Parse JSON from response
   try {
-    // Try to extract JSON from markdown code blocks if present
     const jsonMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/) ||
                       responseText.match(/```\n?([\s\S]*?)\n?```/) ||
                       [null, responseText];

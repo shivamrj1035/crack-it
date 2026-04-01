@@ -89,10 +89,14 @@ export const createDefaultTypes = mutation({
 export const list = query({
   args: {
     actorUserId: v.optional(v.id("users")),
-    organizationId: v.id("organizations"),
+    organizationId: v.optional(v.id("organizations")),
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
+    if (!args.organizationId) {
+      return [];
+    }
+
     if (args.actorUserId) {
       await assertOrgAccess(ctx, args.actorUserId, args.organizationId);
     }
@@ -100,7 +104,7 @@ export const list = query({
     const types = await ctx.db
       .query("interviewerTypes")
       .withIndex("by_organization", (q) =>
-        q.eq("organizationId", args.organizationId)
+        q.eq("organizationId", args.organizationId!)
       )
       .collect();
 

@@ -91,7 +91,7 @@ export const createNewUser = mutation({
     const clerkId = identity?.subject || args.clerkId;
 
     if (!clerkId) {
-      throw new Error("Clerk authentication required");
+      return null;
     }
 
     const legacyUser = await ensureLegacyUser(ctx, args);
@@ -132,6 +132,7 @@ export const createNewUser = mutation({
 
     return {
       ...legacyUser,
+      _id: refreshedAppUser!._id, // Override with the correct enterprise user ID
       appUserId: refreshedAppUser?._id,
       organizationId,
       role: refreshedAppUser?.role,

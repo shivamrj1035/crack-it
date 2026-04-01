@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { userByClerkId } from "./user";
 
@@ -32,16 +32,25 @@ export const create = mutation({
     apiKey: v.string(),
     preferredModel: v.optional(v.string()),
     rateLimitPerMinute: v.optional(v.number()),
+    baseUrl: v.optional(v.string()),
   },
   returns: v.id("aiProviderKeys"),
   handler: async (ctx, args) => {
+    console.log("Creating AI provider key for org:", args.organizationId);
+    
     const user = await userByClerkId(ctx);
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      console.error("User identity not found in Convex context");
+      throw new ConvexError("User session not found. Please refresh and try again.");
+    }
+    
     if (user.organizationId !== args.organizationId) {
-      throw new Error("Unauthorized");
+      console.error("Unauthorized: User org", user.organizationId, "vs Request org", args.organizationId);
+      throw new ConvexError("Unauthorized access to organization settings");
     }
 
     // Encrypt the API key
+    console.log("Encrypting API key for provider:", args.provider);
     const encryptedKey = encryptKey(args.apiKey);
     const keyLastFour = getLastFour(args.apiKey);
 
@@ -55,6 +64,7 @@ export const create = mutation({
 
     const isDefault = existingKeys.length === 0;
 
+    console.log("Inserting provider key into db. isDefault:", isDefault);
     const keyId = await ctx.db.insert("aiProviderKeys", {
       organizationId: args.organizationId,
       provider: args.provider,
@@ -64,19 +74,25 @@ export const create = mutation({
       isActive: true,
       isDefault,
       usageCount: 0,
-      preferredModel: args.preferredModel,
-      rateLimitPerMinute: args.rateLimitPerMinute,
+      preferredModel: args.preferredModel || undefined,
+      rateLimitPerMinute: args.rateLimitPerMinute || undefined,
+      baseUrl: args.baseUrl || undefined,
       createdBy: user._id,
     });
 
-    await ctx.db.insert("activityLogs", {
-      organizationId: args.organizationId,
-      userId: user._id,
-      action: "ai_provider_created",
-      entityType: "aiProvider",
-      description: `AI provider "${args.name}" (${args.provider}) was added`,
-      timestamp: Date.now(),
-    });
+    try {
+      console.log("Logging activity log for provider creation");
+      await ctx.db.insert("activityLogs", {
+        organizationId: args.organizationId,
+        userId: user._id,
+        action: "ai_provider_created",
+        entityType: "aiProvider",
+        description: `AI provider "${args.name}" (${args.provider}) was added`,
+        timestamp: Date.now(),
+      });
+    } catch (logError) {
+      console.error("Failed to write activity log (non-fatal):", logError);
+    }
 
     return keyId;
   },
@@ -87,9 +103,9 @@ export const list = query({
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const user = await userByClerkId(ctx);
-    if (!user) throw new Error("User not found");
+    if (!user) return [];
     if (user.organizationId !== args.organizationId) {
-      throw new Error("Unauthorized");
+      return [];
     }
 
     const keys = await ctx.db

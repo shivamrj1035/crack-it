@@ -4,49 +4,64 @@ import { assertOrgAccess } from "./helpers";
 
 export const getOverview = query({
   args: {
-    actorUserId: v.id("users"),
-    organizationId: v.id("organizations"),
+    actorUserId: v.optional(v.id("users")),
+    organizationId: v.optional(v.id("organizations")),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    await assertOrgAccess(ctx, args.actorUserId, args.organizationId);
+    if (!args.actorUserId || !args.organizationId) {
+      return { 
+        totals: { candidates: 0, interviewing: 0, hired: 0, rejected: 0, bench: 0, activeBench: 0, completedInterviews: 0, averageScore: 0, averageProctoringScore: 0, followUpsDue: 0, queuedNotifications: 0, activeIntegrations: 0 },
+        candidateStatusBreakdown: [],
+        sourceBreakdown: [],
+        benchByPriority: [],
+        notificationBreakdown: [],
+        recentActivity: [],
+        upcomingBenchFollowUps: []
+      };
+    }
+
+    const orgId = args.organizationId;
+    const actorId = args.actorUserId;
+
+    await assertOrgAccess(ctx, actorId, orgId);
 
     const [candidates, interviews, benchEntries, activityLogs, notifications, integrations] =
       await Promise.all([
         ctx.db
           .query("candidates")
           .withIndex("by_organization", (q) =>
-            q.eq("organizationId", args.organizationId)
+            q.eq("organizationId", orgId)
           )
           .collect(),
         ctx.db
           .query("interviews")
           .withIndex("by_organization", (q) =>
-            q.eq("organizationId", args.organizationId)
+            q.eq("organizationId", orgId)
           )
           .collect(),
         ctx.db
           .query("benchPool")
           .withIndex("by_organization", (q) =>
-            q.eq("organizationId", args.organizationId)
+            q.eq("organizationId", orgId)
           )
           .collect(),
         ctx.db
           .query("activityLogs")
           .withIndex("by_organization", (q) =>
-            q.eq("organizationId", args.organizationId)
+            q.eq("organizationId", orgId)
           )
           .collect(),
         ctx.db
           .query("notificationLogs")
           .withIndex("by_organization", (q) =>
-            q.eq("organizationId", args.organizationId)
+            q.eq("organizationId", orgId)
           )
           .collect(),
         ctx.db
           .query("atsIntegrations")
           .withIndex("by_organization", (q) =>
-            q.eq("organizationId", args.organizationId)
+            q.eq("organizationId", orgId)
           )
           .collect(),
       ]);
