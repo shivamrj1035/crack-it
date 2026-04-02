@@ -251,6 +251,17 @@ export default function StartInterview() {
     }
   }, [interviewData, currentQuestionIndex, chatHistory, interviewId]);
 
+  // Intelligent Auto-Play for subsequent questions
+  useEffect(() => {
+    if (interviewData && !showAnimation && !hasHeardQuestion && currentQuestionIndex > 0 && !isSpeaking) {
+      const timer = setTimeout(() => {
+        handleSpeak();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestionIndex, showAnimation]);
+
   const getOrgSettings = async () => {
     try {
       const org = await convex.query(api.organizations.getById, {
@@ -379,23 +390,66 @@ export default function StartInterview() {
     }
   };
 
-  const handleSpeak = () => {
+  const handleSpeak = async () => {
     if (!interviewData) return;
     const question = interviewData.interviewQuestions[currentQuestionIndex]?.question;
     if (!question) return;
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(question);
-    utterance.lang = "en-US";
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setHasHeardQuestion(false);
-    };
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setHasHeardQuestion(true);
-    };
-    window.speechSynthesis.speak(utterance);
+    setHasHeardQuestion(false);
+
+    let playedViaApi = false;
+
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text: question,
+          organizationId: userDetails?.organizationId 
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        
+        audio.onplay = () => setIsSpeaking(true);
+        audio.onended = () => {
+          setIsSpeaking(false);
+          setHasHeardQuestion(true);
+          URL.revokeObjectURL(url);
+        };
+        
+        await audio.play();
+        playedViaApi = true;
+      } else {
+        console.warn("API TTS failed, falling back to browser TTS:", await response.text());
+      }
+    } catch (err) {
+      console.error("Error calling TTS API, falling back to browser TTS:", err);
+    }
+
+    if (!playedViaApi) {
+      // Fallback: Browser Native TTS
+      const utterance = new SpeechSynthesisUtterance(question);
+      
+      const voices = window.speechSynthesis.getVoices();
+      const premiumVoice = voices.find(v => v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Premium"));
+      if (premiumVoice) utterance.voice = premiumVoice;
+      
+      utterance.rate = 0.95; 
+      utterance.pitch = 0.95;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setHasHeardQuestion(true);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const handleListen = () => {

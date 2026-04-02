@@ -269,6 +269,32 @@ export const getDefaultKey = query({
   },
 });
 
+// ==================== GET SPECIFIC PROVIDER KEY ====================
+export const getProviderKey = query({
+  args: { 
+    organizationId: v.id("organizations"),
+    provider: v.string()
+  },
+  handler: async (ctx, args) => {
+    // Look for any active key of the specified provider
+    const activeKeys = await ctx.db
+      .query("aiProviderKeys")
+      .withIndex("by_organization", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const providerKey = activeKeys.find((k) => k.isActive && k.provider === args.provider);
+    if (providerKey) {
+      return {
+        ...providerKey,
+        apiKey: decryptKey(providerKey.encryptedKey),
+      };
+    }
+    return null;
+  },
+});
+
 // ==================== SYSTEM DEFAULT (Platform-wide) ====================
 
 export const getSystemDefault = query({

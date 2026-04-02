@@ -134,12 +134,14 @@ function buildQuestionPrompt(
   jobDescription: string,
   jobExperience: string
 ): string {
-  let prompt = `You are an expert technical interviewer with 15+ years of experience in software engineering and technical hiring.
+  let prompt = `You are an expert technical interviewer with 15+ years of experience in software engineering and technical hiring. You will be conducting a live voice interview.
 
 Generate 10 relevant interview questions based on the provided information. Each question should:
-1. Be specific and challenging but fair
-2. Include a strong model answer that demonstrates best practices
-3. Cover different aspects: technical skills, problem-solving, experience, and soft skills
+1. Be specific and challenging but fair.
+2. Include a strong model answer that demonstrates best practices.
+3. Be written in a highly conversational, spoken tone. 
+4. PERFECTLY mimic human speech by using natural fillers (e.g., "Hmm", "Ah, I see", "Well then", "Okay, moving on to", "That's interesting, so"). Do not make every question start with a filler, but use them naturally to build rapport.
+5. Keep the spoken question extremely concise and direct as it will be read aloud by an AI voice.
 
 `;
 
@@ -164,11 +166,11 @@ Generate 10 relevant interview questions based on the provided information. Each
 {
   "questions": [
     {
-      "question": "What is the difference between let, const, and var in JavaScript?",
+      "question": "Alright, let's start with the basics. Can you explain the difference between let, const, and var in JavaScript?",
       "answer": "let and const were introduced in ES6. let allows reassignment but not redeclaration, const prevents both reassignment and redeclaration, while var is function-scoped and allows both."
     },
     {
-      "question": "Explain how closures work in JavaScript.",
+      "question": "Hmm, I see. What about closures? How would you describe how closures work in JavaScript?",
       "answer": "A closure is a function that has access to variables in its outer (enclosing) lexical scope even after the outer function has returned. They allow for data encapsulation and factory functions."
     }
   ]
